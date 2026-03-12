@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Взлет ракеты</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #2a2a2a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+        }
+
+        .container {
+            background: #3a3a3a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 2px solid #888;
+            background: #1a1a2e;
+            cursor: crosshair;
+        }
+
+        .panel {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            background: #4a4a4a;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        button {
+            background: #61dafb;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            min-width: 70px;
+        }
+
+        button:hover {
+            background: #21a1c4;
+        }
+
+        .group {
+            display: flex;
+            gap: 4px;
+            border-right: 2px solid #888;
+            padding-right: 8px;
+            margin-right: 4px;
+        }
+
+        .group:last-child {
+            border-right: none;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #5a5a5a;
+            padding: 5px 10px;
+            border-radius: 5px;
+            color: white;
+        }
+
+        input {
+            width: 60px;
+            padding: 4px;
+            border-radius: 4px;
+            border: none;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <canvas id="canvas" width="800" height="600"></canvas>
+
+        <div class="panel">
+            <!-- Переносы -->
+            <div class="group">
+                <button id="moveLeft">← OX-</button>
+                <button id="moveRight">OX+ →</button>
+                <button id="moveDown">↓ OY-</button>
+                <button id="moveUp">OY+ ↑</button>
+            </div>
+
+            <!-- Отражения -->
+            <div class="group">
+                <button id="reflectX">Отраж. OX</button>
+                <button id="reflectY">Отраж. OY</button>
+                <button id="reflectYX">Отраж. Y=X</button>
+            </div>
+
+            <!-- Масштабирование -->
+            <div class="group">
+                <button id="scaleXPlus">X+</button>
+                <button id="scaleXMinus">X-</button>
+                <button id="scaleYPlus">Y+</button>
+                <button id="scaleYMinus">Y-</button>
+            </div>
+
+            <!-- Повороты -->
+            <div class="group">
+                <button id="rotateCW">Поворот +15°</button>
+                <button id="rotateCCW">Поворот -15°</button>
+            </div>
+
+            <!-- Поворот вокруг точки -->
+            <div class="input-group">
+                <span style="color:#fff;">Вокруг (</span>
+                <input type="number" id="rotX" value="50" step="10">,
+                <input type="number" id="rotY" value="50" step="10">
+                <span style="color:#fff;">)</span>
+                <button id="rotatePoint">Повернуть</button>
+            </div>
+
+            <!-- Управление анимацией -->
+            <div class="group">
+                <button id="startFly">Поехали!</button>
+                <button id="reset">Сброс</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            // ---------- Матрица 3x3 ----------
+            class Matrix3 {
+                constructor(elements) {
+                    // элементы по строкам: [a11, a12, a13, a21, a22, a23, a31, a32, a33]
+                    this.e = elements || [1, 0, 0, 0, 1, 0, 0, 0, 1];
+                }
+
+                // умножение на вектор (x, y, 1)
+                transform(point) {
+                    let x = point.x, y = point.y;
+                    let e = this.e;
+                    let newX = e[0] * x + e[1] * y + e[2];
+                    let newY = e[3] * x + e[4] * y + e[5];
+                    return { x: newX, y: newY };
+                }
+
+                // умножение на другую матрицу (this * m)
+                multiply(m) {
+                    let a = this.e, b = m.e;
+                    return new Matrix3([
+                        a[0] * b[0] + a[1] * b[3] + a[2] * b[6],
+                        a[0] * b[1] + a[1] * b[4] + a[2] * b[7],
+                        a[0] * b[2] + a[1] * b[5] + a[2] * b[8],
+                        a[3] * b[0] + a[4] * b[3] + a[5] * b[6],
+                        a[3] * b[1] + a[4] * b[4] + a[5] * b[7],
+                        a[3] * b[2] + a[4] * b[5] + a[5] * b[8],
+                        a[6] * b[0] + a[7] * b[3] + a[8] * b[6],
+                        a[6] * b[1] + a[7] * b[4] + a[8] * b[7],
+                        a[6] * b[2] + a[7] * b[5] + a[8] * b[8]
+                    ]);
+                }
+
+                // статические методы для базовых преобразований
+                static translation(dx, dy) {
+                    return new Matrix3([1, 0, dx, 0, 1, dy, 0, 0, 1]);
+                }
+
+                static scaling(sx, sy) {
+                    return new Matrix3([sx, 0, 0, 0, sy, 0, 0, 0, 1]);
+                }
+
+                static rotation(angle) {
+                    let c = Math.cos(angle), s = Math.sin(angle);
+                    return new Matrix3([c, -s, 0, s, c, 0, 0, 0, 1]);
+                }
+
+                static reflectionX() {
+                    return new Matrix3([1, 0, 0, 0, -1, 0, 0, 0, 1]);
+                }
+
+                static reflectionY() {
+                    return new Matrix3([-1, 0, 0, 0, 1, 0, 0, 0, 1]);
+                }
+
+                static reflectionYX() {
+                    return new Matrix3([0, 1, 0, 1, 0, 0, 0, 0, 1]);
+                }
+
+                static rotationAroundPoint(angle, cx, cy) {
+                    let T1 = Matrix3.translation(-cx, -cy);
+                    let R = Matrix3.rotation(angle);
+                    let T2 = Matrix3.translation(cx, cy);
+                    return T2.multiply(R.multiply(T1));
+                }
+            }
+
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+            const cx = w / 2, cy = h / 2;
+            const rocketVertices = [
+                { x: 0, y: 100 },      // 0 нос
+                { x: -180, y: 10 },    // 1 левое основание носа / левый верх тела
+                { x: 180, y: 10 },     // 2 правое основание носа / правый верх тела
+                { x: -180, y: 10 },    // 3 левый верх тела (дубль, можно использовать 1)
+                { x: 180, y: 10 },     // 4 правый верх тела (дубль, можно использовать 2)
+                { x: 180, y: -35 },    // 5 правый низ тела
+                { x: -180, y: -35 },   // 6 левый низ тела
+                { x: -100, y: -35 },   // 7 левый зубец у тела
+                { x: -150, y: -100 },  // 8 левый средний зубец
+                { x: 0, y: -200 },     // 9 центральный зубец
+                { x: 150, y: -100 },   // 10 правый средний зубец
+                { x: 100, y: -35 },    // 11 правый зубец у тела
+                // Две новые вершины для звезды
+                { x: -80, y: -120 },   // 12 левый дополнительный зубец
+                { x: 80, y: -120 }     // 13 правый дополнительный зубец
+            ];
+
+            // Полигоны (все белые, обводка чёрная)
+            const polygons = [
+                { indices: [0, 1, 2], color: '#fff' },        // нос
+                { indices: [3, 4, 5, 6], color: '#fff' },     // тело
+                { indices: [6, 7, 8, 12, 9, 13, 10, 11, 5], color: '#fff' } // огонь (звезда)
+            ];
+            let manualMatrix = new Matrix3();
+            let animMatrix = new Matrix3();
+
+            let animating = false;
+            let animDy = 0;
+            let animScale = 1.0;
+            const FLY_SPEED = 1.5;
+            const SCALE_FACTOR = 0.995;
+            const MIN_SCALE = 0.2;
+
+            function draw() {
+                ctx.clearRect(0, 0, w, h);
+                ctx.beginPath();
+                ctx.strokeStyle = '#555';
+                ctx.lineWidth = 1;
+                ctx.moveTo(0, cy);
+                ctx.lineTo(w, cy);
+                ctx.moveTo(cx, 0);
+                ctx.lineTo(cx, h);
+                ctx.stroke();
+
+                const totalMatrix = animMatrix.multiply(manualMatrix);
+
+                // Рисуем полигоны ракеты
+                polygons.forEach(poly => {
+                    ctx.beginPath();
+                    ctx.fillStyle = poly.color;
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 2;
+
+                    // Преобразуем первую вершину
+                    let p = totalMatrix.transform(rocketVertices[poly.indices[0]]);
+                    let screenX = cx + p.x;
+                    let screenY = cy - p.y; // инвертируем Y
+                    ctx.moveTo(screenX, screenY);
+
+                    for (let i = 1; i < poly.indices.length; i++) {
+                        p = totalMatrix.transform(rocketVertices[poly.indices[i]]);
+                        screenX = cx + p.x;
+                        screenY = cy - p.y;
+                        ctx.lineTo(screenX, screenY);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                });
+            }
+            function updateAnimMatrix() {
+                let S = Matrix3.scaling(animScale, animScale);
+                let T = Matrix3.translation(0, animDy);
+                animMatrix = T.multiply(S);
+            }
+
+            function animate() {
+                if (!animating) return;
+
+                animDy += FLY_SPEED;
+                animScale *= SCALE_FACTOR;
+                if (animScale < MIN_SCALE) animScale = MIN_SCALE;
+
+                updateAnimMatrix();
+                draw();
+
+                requestAnimationFrame(animate);
+            }
+
+            function applyManualTransform(transformMatrix) {
+                manualMatrix = transformMatrix.multiply(manualMatrix);
+                draw();
+            }
+
+            function reset() {
+                manualMatrix = new Matrix3();
+                animDy = 0;
+                animScale = 1.0;
+                updateAnimMatrix();
+                animating = false;
+                draw();
+            }
+
+            window.addEventListener('load', () => {
+                reset();
+
+                document.getElementById('moveLeft').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.translation(-10, 0));
+                });
+                document.getElementById('moveRight').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.translation(10, 0));
+                });
+                document.getElementById('moveDown').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.translation(0, -10));
+                });
+                document.getElementById('moveUp').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.translation(0, 10));
+                });
+                document.getElementById('reflectX').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.reflectionX());
+                });
+                document.getElementById('reflectY').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.reflectionY());
+                });
+                document.getElementById('reflectYX').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.reflectionYX());
+                });
+                document.getElementById('scaleXPlus').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.scaling(1.2, 1));
+                });
+                document.getElementById('scaleXMinus').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.scaling(0.8, 1));
+                });
+                document.getElementById('scaleYPlus').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.scaling(1, 1.2));
+                });
+                document.getElementById('scaleYMinus').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.scaling(1, 0.8));
+                });
+                document.getElementById('rotateCW').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.rotation(15 * Math.PI / 180));
+                });
+                document.getElementById('rotateCCW').addEventListener('click', () => {
+                    applyManualTransform(Matrix3.rotation(-15 * Math.PI / 180));
+                });
+                document.getElementById('rotatePoint').addEventListener('click', () => {
+                    let x = parseFloat(document.getElementById('rotX').value) || 0;
+                    let y = parseFloat(document.getElementById('rotY').value) || 0;
+                    applyManualTransform(Matrix3.rotationAroundPoint(15 * Math.PI / 180, x, y));
+                });
+
+                document.getElementById('startFly').addEventListener('click', () => {
+                    if (!animating) {
+                        animating = true;
+                        animate();
+                    }
+                });
+                document.getElementById('reset').addEventListener('click', reset);
+
+                canvas.addEventListener('click', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    // преобразуем в мировые координаты (центр в (0,0), Y вверх)
+                    const worldX = mouseX - cx;
+                    const worldY = cy - mouseY;
+                    document.getElementById('rotX').value = Math.round(worldX);
+                    document.getElementById('rotY').value = Math.round(worldY);
+                });
+
+                draw();
+            });
+        })();
+    </script>
+</body>
+
+</html>
