@@ -93,7 +93,6 @@
         <canvas id="canvas" width="800" height="600"></canvas>
 
         <div class="panel">
-            <!-- Переносы -->
             <div class="group">
                 <button id="moveLeft">← OX-</button>
                 <button id="moveRight">OX+ →</button>
@@ -101,14 +100,12 @@
                 <button id="moveUp">OY+ ↑</button>
             </div>
 
-            <!-- Отражения -->
             <div class="group">
                 <button id="reflectX">Отраж. OX</button>
                 <button id="reflectY">Отраж. OY</button>
                 <button id="reflectYX">Отраж. Y=X</button>
             </div>
 
-            <!-- Масштабирование -->
             <div class="group">
                 <button id="scaleXPlus">X+</button>
                 <button id="scaleXMinus">X-</button>
@@ -116,13 +113,11 @@
                 <button id="scaleYMinus">Y-</button>
             </div>
 
-            <!-- Повороты -->
             <div class="group">
                 <button id="rotateCW">Поворот +15°</button>
                 <button id="rotateCCW">Поворот -15°</button>
             </div>
 
-            <!-- Поворот вокруг точки -->
             <div class="input-group">
                 <span style="color:#fff;">Вокруг (</span>
                 <input type="number" id="rotX" value="50" step="10">,
@@ -131,7 +126,6 @@
                 <button id="rotatePoint">Повернуть</button>
             </div>
 
-            <!-- Управление анимацией -->
             <div class="group">
                 <button id="startFly">Поехали!</button>
                 <button id="reset">Сброс</button>
@@ -141,14 +135,11 @@
 
     <script>
         (function () {
-            // ---------- Матрица 3x3 ----------
             class Matrix3 {
                 constructor(elements) {
-                    // элементы по строкам: [a11, a12, a13, a21, a22, a23, a31, a32, a33]
                     this.e = elements || [1, 0, 0, 0, 1, 0, 0, 0, 1];
                 }
 
-                // умножение на вектор (x, y, 1)
                 transform(point) {
                     let x = point.x, y = point.y;
                     let e = this.e;
@@ -157,7 +148,6 @@
                     return { x: newX, y: newY };
                 }
 
-                // умножение на другую матрицу (this * m)
                 multiply(m) {
                     let a = this.e, b = m.e;
                     return new Matrix3([
@@ -173,7 +163,6 @@
                     ]);
                 }
 
-                // статические методы для базовых преобразований
                 static translation(dx, dy) {
                     return new Matrix3([1, 0, dx, 0, 1, dy, 0, 0, 1]);
                 }
@@ -212,28 +201,26 @@
             const w = canvas.width, h = canvas.height;
             const cx = w / 2, cy = h / 2;
             const rocketVertices = [
-                { x: 0, y: 100 },      // 0 нос
-                { x: -180, y: 10 },    // 1 левое основание носа / левый верх тела
-                { x: 180, y: 10 },     // 2 правое основание носа / правый верх тела
-                { x: -180, y: 10 },    // 3 левый верх тела (дубль, можно использовать 1)
-                { x: 180, y: 10 },     // 4 правый верх тела (дубль, можно использовать 2)
-                { x: 180, y: -35 },    // 5 правый низ тела
-                { x: -180, y: -35 },   // 6 левый низ тела
-                { x: -100, y: -35 },   // 7 левый зубец у тела
-                { x: -150, y: -100 },  // 8 левый средний зубец
-                { x: 0, y: -200 },     // 9 центральный зубец
-                { x: 150, y: -100 },   // 10 правый средний зубец
-                { x: 100, y: -35 },    // 11 правый зубец у тела
-                // Две новые вершины для звезды
-                { x: -80, y: -120 },   // 12 левый дополнительный зубец
-                { x: 80, y: -120 }     // 13 правый дополнительный зубец
+                { x: 0, y: 100 },
+                { x: -180, y: 10 },
+                { x: 180, y: 10 },
+                { x: -180, y: 10 },
+                { x: 180, y: 10 },
+                { x: 180, y: -35 },
+                { x: -180, y: -35 },
+                { x: -100, y: -35 },
+                { x: -150, y: -100 },
+                { x: 0, y: -200 },
+                { x: 150, y: -100 },
+                { x: 100, y: -35 },
+                { x: -80, y: -120 },
+                { x: 80, y: -120 }
             ];
 
-            // Полигоны (все белые, обводка чёрная)
             const polygons = [
-                { indices: [0, 1, 2], color: '#fff' },        // нос
-                { indices: [3, 4, 5, 6], color: '#fff' },     // тело
-                { indices: [6, 7, 8, 12, 9, 13, 10, 11, 5], color: '#fff' } // огонь (звезда)
+                { indices: [0, 1, 2], color: '#fff' },
+                { indices: [3, 4, 5, 6], color: '#fff' },
+                { indices: [6, 7, 8, 12, 9, 13, 10, 11, 5], color: '#fff' }
             ];
             let manualMatrix = new Matrix3();
             let animMatrix = new Matrix3();
@@ -258,17 +245,14 @@
 
                 const totalMatrix = animMatrix.multiply(manualMatrix);
 
-                // Рисуем полигоны ракеты
                 polygons.forEach(poly => {
                     ctx.beginPath();
                     ctx.fillStyle = poly.color;
                     ctx.strokeStyle = '#000';
                     ctx.lineWidth = 2;
-
-                    // Преобразуем первую вершину
                     let p = totalMatrix.transform(rocketVertices[poly.indices[0]]);
                     let screenX = cx + p.x;
-                    let screenY = cy - p.y; // инвертируем Y
+                    let screenY = cy - p.y;
                     ctx.moveTo(screenX, screenY);
 
                     for (let i = 1; i < poly.indices.length; i++) {
