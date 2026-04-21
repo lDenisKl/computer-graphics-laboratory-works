@@ -27,12 +27,10 @@ def bresenham_line(x0: int, y0: int, x1: int, y1: int):
 
 
 def plot_bresenham_line(x0, y0, x1, y1):
-    """Визуализация первой части"""
     points = bresenham_line(x0, y0, x1, y1)
 
     fig, ax = plt.subplots(figsize=(11, 9))
 
-    # Границы сетки
     min_x = min(x0, x1) - 1
     max_x = max(x0, x1) + 2
     min_y = min(y0, y1) - 1
@@ -42,7 +40,6 @@ def plot_bresenham_line(x0, y0, x1, y1):
     ax.set_yticks(np.arange(min_y, max_y))
     ax.grid(True, color="gray", linestyle="-", linewidth=0.8, alpha=0.7)
 
-    # Изображение отрезка стандартным методом
     ax.plot([x0, x1], [y0, y1], "b-", linewidth=3, label="Стандартный метод")
 
     # отмеченные пиксели
@@ -59,7 +56,6 @@ def plot_bresenham_line(x0, y0, x1, y1):
         zorder=5,
     )
 
-    # Подписи координат пикселей
     for x, y in points:
         ax.text(
             x,
@@ -85,14 +81,13 @@ def plot_bresenham_line(x0, y0, x1, y1):
 
 
 def bresenham_circle(cx: int, cy: int, r: int):
-    """Алгоритм Брезенхема (midpoint) растеризации окружности"""
+    """Алгоритм Брезенхема растеризации окружности"""
     points = []
     x = 0
     y = r
     d = 3 - 2 * r
 
     while x <= y:
-        # 8 симметричных точек
         for dx, dy in [
             (x, y),
             (-x, y),
@@ -111,7 +106,6 @@ def bresenham_circle(cx: int, cy: int, r: int):
             y -= 1
         x += 1
 
-    # Убираем возможные дубликаты
     return list(set(points))
 
 
@@ -121,14 +115,12 @@ def plot_bresenham_circle(cx, cy, r):
 
     fig, ax = plt.subplots(figsize=(11, 10))
 
-    # Границы сетки
     min_coord = min(cx - r - 1, cy - r - 1)
     max_coord = max(cx + r + 2, cy + r + 2)
     ax.set_xticks(np.arange(min_coord, max_coord))
     ax.set_yticks(np.arange(min_coord, max_coord))
     ax.grid(True, color="gray", linestyle="-", linewidth=0.8, alpha=0.7)
 
-    # Изображение окружности стандартным методом
     circle_standard = plt.Circle(
         (cx, cy), r, fill=False, color="blue", linewidth=3, label="Стандартный метод"
     )
