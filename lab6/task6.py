@@ -8,13 +8,9 @@ from matplotlib.collections import LineCollection
 from matplotlib.lines import Line2D
 from matplotlib.patches import Polygon as MplPolygon
 
-# ── Точки ────────────────────────────────────────────────────────────────────
 np.random.seed(42)
-N = 14
+N = 15
 POINTS = [tuple(map(float, p)) for p in np.random.uniform(60, 440, (N, 2))]
-
-
-# ── Геометрия ─────────────────────────────────────────────────────────────────
 
 
 def cross2d(O, A, B):
@@ -63,8 +59,6 @@ keyframes.append(
     )
 )
 
-# Группируем по треугольнику в порядке обхода combinations,
-# чтобы один кадр = один треугольник → все точки внутри него сразу
 tri_to_pts = {}
 for l, tri in first_elim.items():
     tri_to_pts.setdefault(tri, []).append(l)
